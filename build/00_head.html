@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>THALASSA — From Bacterium to Leviathan</title>
+<style>
+/* ============================================================
+   THALASSA — styles
+   Palette: scientific documentary x cartoon. Deep ocean blues,
+   bioluminescent cyans, warm biological accents.
+   ============================================================ */
+:root{
+  --ink:#dff3fb;
+  --ink-dim:#8fb6c9;
+  --panel:rgba(6,22,34,.90);
+  --panel-2:rgba(9,32,48,.94);
+  --line:rgba(120,220,255,.22);
+  --line-hot:rgba(140,240,255,.65);
+  --dna:#8ef2c0;
+  --hp:#ff8a7a;
+  --stam:#ffd479;
+  --accent:#63d8ff;
+  --gold:#ffdf8a;
+  --shadow:0 10px 40px rgba(0,0,0,.55);
+  font-size:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#02090f;}
+body{
+  font-family:"Trebuchet MS","Segoe UI",Verdana,system-ui,sans-serif;
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  user-select:none;-webkit-user-select:none;
+  touch-action:none;
+  cursor:crosshair;
+}
+#view{
+  position:fixed;inset:0;width:100%;height:100%;display:block;
+  image-rendering:pixelated;image-rendering:crisp-edges;
+}
+#ui{position:fixed;inset:0;pointer-events:none;z-index:5;}
+#ui .clickable{pointer-events:auto;}
+
+/* ---------- shared bits ---------- */
+.bar{position:relative;height:9px;border-radius:5px;background:rgba(255,255,255,.10);overflow:hidden;
+     box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);}
+.bar>i{position:absolute;inset:0 auto 0 0;width:100%;border-radius:5px;transition:width .12s linear;}
+.lbl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim);}
+.mono{font-variant-numeric:tabular-nums;font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;}
+
+/* ---------- HUD ---------- */
+#hud{position:absolute;inset:0;opacity:0;transition:opacity .45s ease;}
+#hud.on{opacity:1;}
+#hudTop{position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:7px;max-width:min(46vw,430px);}
+#stageTag{display:flex;align-items:baseline;gap:9px;text-shadow:0 2px 8px #000;}
+#stageName{font-size:19px;font-weight:700;letter-spacing:.02em;color:#eafaff;}
+#stageLat{font-size:11px;font-style:italic;color:var(--ink-dim);}
+#stageIdx{font-size:11px;color:var(--accent);letter-spacing:.12em;}
+#dnaRow{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
+        border-radius:10px;padding:6px 11px;box-shadow:var(--shadow);width:max-content;}
+#dnaIcon{width:13px;height:13px;border-radius:50%;background:var(--dna);
+         box-shadow:0 0 12px var(--dna);flex:0 0 auto;}
+#dnaVal{font-size:17px;font-weight:700;color:var(--dna);}
+#dnaRate{font-size:10px;color:var(--ink-dim);}
+#evoBtn{pointer-events:auto;border:1px solid var(--line-hot);background:rgba(24,90,120,.55);color:#eaffff;
+        font:700 12px/1 inherit;letter-spacing:.14em;padding:8px 13px;border-radius:10px;cursor:pointer;
+        opacity:.28;transition:.18s;text-transform:uppercase;}
+#evoBtn.ready{opacity:1;animation:pulse 1.5s ease-in-out infinite;background:rgba(48,170,150,.55);}
+#evoBtn:hover{background:rgba(70,205,180,.7);}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(142,242,192,.55)}50%{box-shadow:0 0 0 11px rgba(142,242,192,0)}}
+#bars{display:flex;flex-direction:column;gap:4px;width:min(30vw,250px);}
+#hpFill{background:linear-gradient(90deg,#ff6a5a,#ffab8a);}
+#stFill{background:linear-gradient(90deg,#e8b64a,#ffe6a3);}
+
+#traits{position:absolute;top:12px;right:12px;display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end;
+        max-width:min(38vw,330px);}
+.trait{font-size:10px;letter-spacing:.05em;padding:4px 8px;border-radius:20px;background:rgba(9,32,48,.85);
+       border:1px solid var(--line);color:#bfe9ff;text-shadow:0 1px 3px #000;}
+
+/* depth gauge */
+#depth{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:54px;height:min(46vh,380px);
+       display:flex;flex-direction:column;align-items:center;gap:5px;}
+#depthStrip{position:relative;width:12px;flex:1;border-radius:7px;overflow:hidden;
+            background:linear-gradient(180deg,#5fe3f0 0%,#2aa7c9 9%,#1a6fa3 19%,#123f74 35%,#0b2350 54%,
+                                        #061230 72%,#03081c 88%,#01040d 100%);
+            box-shadow:inset 0 0 0 1px rgba(255,255,255,.14),0 4px 18px rgba(0,0,0,.5);}
+#depthMark{position:absolute;left:-4px;width:20px;height:3px;border-radius:2px;background:var(--gold);
+           box-shadow:0 0 8px var(--gold);transition:top .1s linear;}
+#depthLimit{position:absolute;left:-2px;width:16px;height:2px;background:repeating-linear-gradient(90deg,#ff6a5a 0 3px,transparent 3px 6px);opacity:.9;}
+#depthTxt{font-size:11px;color:#cdeeff;text-shadow:0 1px 4px #000;text-align:center;line-height:1.25;}
+#zoneTxt{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);text-align:center;}
+
+#help{position:absolute;left:12px;bottom:10px;font-size:10.5px;line-height:1.75;color:rgba(180,215,232,.62);
+      text-shadow:0 1px 4px #000;letter-spacing:.03em;}
+#help b{color:#cdeeff;font-weight:700}
+#fpsQ{position:absolute;right:12px;bottom:10px;font-size:9.5px;color:rgba(160,200,220,.4);letter-spacing:.08em;}
+#toast{position:absolute;left:50%;top:17%;transform:translateX(-50%);font-size:14px;letter-spacing:.1em;
+       color:#ffd9a0;text-shadow:0 2px 12px #000;opacity:0;transition:opacity .3s;text-align:center;
+       background:rgba(6,20,32,.6);padding:7px 16px;border-radius:20px;border:1px solid rgba(255,190,120,.25);
+       max-width:80vw;}
+#toast.on{opacity:1;}
+
+/* ---------- overlays ---------- */
+.screen{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;
+        background:radial-gradient(120% 90% at 50% 40%,rgba(4,18,30,.72),rgba(1,5,10,.95));
+        backdrop-filter:blur(3px);pointer-events:auto;padding:22px;overflow:auto;}
+.screen.on{display:flex;animation:fade .3s ease;}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+/* title */
+#title h1{font-size:clamp(34px,7.4vw,74px);font-weight:800;letter-spacing:.16em;text-align:center;
+          color:#eafcff;text-shadow:0 0 34px rgba(90,220,255,.55),0 4px 0 rgba(0,40,60,.6);}
+#title h2{font-size:clamp(11px,1.7vw,15px);letter-spacing:.34em;text-transform:uppercase;color:var(--accent);
+          margin-top:6px;text-align:center;font-weight:400;}
+#title p.blurb{max-width:620px;text-align:center;margin:22px auto 0;font-size:14px;line-height:1.75;color:#a9cede;}
+.btn{pointer-events:auto;border:1px solid var(--line-hot);background:linear-gradient(180deg,rgba(38,120,155,.75),rgba(16,58,84,.85));
+     color:#efffff;font:700 14px/1 inherit;letter-spacing:.18em;text-transform:uppercase;
+     padding:14px 30px;border-radius:12px;cursor:pointer;transition:.16s;box-shadow:var(--shadow);}
+.btn:hover{transform:translateY(-2px);background:linear-gradient(180deg,rgba(64,175,210,.9),rgba(26,92,126,.9));}
+.btn:active{transform:translateY(0)}
+.btn.ghost{background:rgba(255,255,255,.05);border-color:var(--line);font-weight:400;letter-spacing:.12em;}
+.btnRow{margin-top:30px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center;}
+.fine{margin-top:24px;font-size:10.5px;letter-spacing:.14em;color:rgba(150,190,210,.5);text-transform:uppercase;text-align:center;max-width:560px;line-height:1.8;}
+
+/* evolution panel */
+#evo{justify-content:flex-start;padding-top:min(6vh,52px);}
+#evoHead{text-align:center;margin-bottom:14px;}
+#evoHead .k{font-size:10.5px;letter-spacing:.36em;text-transform:uppercase;color:var(--accent);}
+#evoHead h3{font-size:clamp(20px,3.3vw,32px);font-weight:800;letter-spacing:.05em;margin-top:5px;color:#f2feff;
+            text-shadow:0 0 26px rgba(90,220,255,.4);}
+#evoHead .sub{font-size:12px;color:var(--ink-dim);margin-top:5px;}
+#cards{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;align-items:stretch;max-width:1180px;}
+.card{pointer-events:auto;width:min(31vw,320px);min-width:245px;background:var(--panel-2);border:1px solid var(--line);
+      border-radius:15px;padding:13px 14px 15px;cursor:pointer;transition:.16s;display:flex;flex-direction:column;gap:8px;
+      position:relative;overflow:hidden;}
+.card:hover{border-color:var(--line-hot);transform:translateY(-4px);box-shadow:0 16px 44px rgba(0,0,0,.6),0 0 0 1px rgba(140,240,255,.25) inset;}
+.card.adv{background:linear-gradient(180deg,rgba(18,64,74,.94),rgba(8,30,46,.96));}
+.card.adv::after{content:"EVOLVES";position:absolute;top:9px;right:-30px;transform:rotate(38deg);
+                 background:var(--dna);color:#04221a;font:800 8.5px/1 inherit;letter-spacing:.16em;padding:4px 32px;}
+.card .num{position:absolute;top:10px;left:12px;font:800 10px/1 inherit;color:rgba(140,200,225,.45);letter-spacing:.1em;}
+.card canvas{width:100%;height:112px;display:block;border-radius:10px;background:radial-gradient(70% 70% at 50% 45%,rgba(40,120,150,.4),rgba(3,12,20,.75));}
+.card h4{font-size:15.5px;font-weight:700;color:#eefcff;line-height:1.25;padding-right:52px;}
+.card .sci{font-size:10.5px;font-style:italic;color:var(--accent);letter-spacing:.02em;}
+.card p{font-size:11.5px;line-height:1.62;color:#a6ccdd;}
+.card .note{font-size:10px;line-height:1.5;color:rgba(150,190,210,.6);border-left:2px solid var(--line);padding-left:7px;}
+.deltas{display:flex;flex-wrap:wrap;gap:5px;margin-top:auto;}
+.d{font-size:10px;padding:3px 7px;border-radius:6px;background:rgba(255,255,255,.06);color:#cfeaf6;letter-spacing:.04em;}
+.d.up{color:var(--dna);background:rgba(142,242,192,.12);}
+.d.dn{color:var(--hp);background:rgba(255,138,122,.12);}
+.d.ab{color:var(--gold);background:rgba(255,223,138,.12);}
+#evoFoot{margin-top:16px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;}
+#evoDna{font-size:12px;color:var(--dna);letter-spacing:.1em;}
+
+/* death / victory */
+#dead h3,#win h3{font-size:clamp(24px,5vw,46px);font-weight:800;letter-spacing:.08em;text-align:center;}
+#dead h3{color:#ffb3a6;text-shadow:0 0 30px rgba(255,90,70,.35);}
+#dead .why{font-size:13.5px;color:#c8dfe9;margin-top:9px;text-align:center;max-width:520px;line-height:1.6;}
+#win{text-align:center;}
+#winPortrait{width:min(74vw,560px);height:min(30vh,220px);border-radius:16px;
+             background:radial-gradient(60% 70% at 50% 50%,rgba(38,110,140,.45),rgba(2,10,18,.8));
+             border:1px solid var(--line);box-shadow:var(--shadow);}
+#win h3{color:var(--gold);text-shadow:0 0 34px rgba(255,210,120,.45);margin-top:14px;}
+#win .sci{font-size:13px;font-style:italic;color:var(--accent);margin-top:5px;}
+#win .msg{font-size:13.5px;color:#b7d7e6;margin-top:12px;max-width:600px;line-height:1.7;}
+.statsGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:9px;margin-top:20px;max-width:760px;width:100%;}
+.stat{background:rgba(9,32,48,.8);border:1px solid var(--line);border-radius:11px;padding:9px 11px;text-align:left;}
+.stat .k{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim);}
+.stat .v{font-size:19px;font-weight:700;color:#eafcff;margin-top:2px;}
+#lineage{margin-top:18px;max-width:820px;font-size:11px;line-height:1.9;color:#9dc3d5;text-align:center;}
+#lineage b{color:var(--dna);font-weight:700;}
+
+/* pause */
+#pause h3{font-size:30px;letter-spacing:.3em;color:#dff3fb;}
+
+@media (max-width:760px){
+  #hudTop{max-width:70vw}
+  #stageName{font-size:15px}
+  #depth{width:40px}
+  #help{display:none}
+  .card{width:min(84vw,340px)}
+}
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="ui">
+  <!-- ============ HUD ============ -->
+  <div id="hud">
+    <div id="hudTop">
+      <div id="stageTag">
+        <div>
+          <div id="stageName">Progenote Bacterium</div>
+          <div id="stageLat">LUCA · prokaryote grade</div>
+        </div>
+        <div id="stageIdx" class="mono">1/20</div>
+      </div>
+      <div id="dnaRow">
+        <div id="dnaIcon"></div>
+        <div id="dnaVal" class="mono">0</div>
+        <div id="dnaRate" class="mono">DNA</div>
+        <button id="evoBtn">Evolve · E</button>
+      </div>
+      <div id="bars">
+        <div class="lbl">Vitality</div><div class="bar"><i id="hpFill"></i></div>
+        <div class="lbl">Burst</div><div class="bar"><i id="stFill"></i></div>
+      </div>
+    </div>
+    <div id="traits"></div>
+    <div id="depth">
+      <div id="depthTxt" class="mono">0 m</div>
+      <div id="depthStrip"><div id="depthLimit"></div><div id="depthMark"></div></div>
+      <div id="zoneTxt">Sunlit</div>
+    </div>
+    <div id="help">
+      <b>Mouse</b> swim &nbsp;·&nbsp; <b>Space / RMB</b> burst &nbsp;·&nbsp; <b>E</b> evolve<br>
+      <b>P / Esc</b> pause &nbsp;·&nbsp; <b>M</b> sound
+    </div>
+    <div id="fpsQ" class="mono"></div>
+    <div id="toast"></div>
+  </div>
+
+  <!-- ============ TITLE ============ -->
+  <div id="title" class="screen on">
+    <h1>THALASSA</h1>
+    <h2>From Bacterium to Leviathan</h2>
+    <p class="blurb">Four billion years of ocean in twenty decisions. Begin as a single prokaryote drifting in
+      the warm shallows. Eat, accumulate DNA, and at each turning point choose a <em>real</em> evolutionary
+      innovation — endosymbiosis, cephalisation, jaws, endothermy, baleen — until you are the largest thing
+      in the water. Descend as you grow; the deep pays better and bites harder.</p>
+    <div class="btnRow">
+      <button class="btn" id="btnStart">Begin as LUCA</button>
+      <button class="btn ghost" id="btnMute">Sound: on</button>
+    </div>
+    <div class="fine">Procedural graphics · procedural audio · no assets · vanilla JS</div>
+  </div>
+
+  <!-- ============ EVOLUTION ============ -->
+  <div id="evo" class="screen">
+    <div id="evoHead">
+      <div class="k">Adaptive Radiation</div>
+      <h3 id="evoTitle">Choose your lineage</h3>
+      <div class="sub" id="evoSub">Each path is a genuine evolutionary innovation</div>
+    </div>
+    <div id="cards"></div>
+    <div id="evoFoot">
+      <div id="evoDna" class="mono"></div>
+      <button class="btn ghost" id="btnEvoClose">Not yet</button>
+    </div>
+  </div>
+
+  <!-- ============ DEATH ============ -->
+  <div id="dead" class="screen">
+    <h3>CONSUMED</h3>
+    <div class="why" id="deadWhy"></div>
+    <div class="statsGrid" style="max-width:520px"></div>
+    <div class="btnRow"><button class="btn" id="btnRespawn">Respawn at checkpoint</button></div>
+    <div class="fine" id="deadFine"></div>
+  </div>
+
+  <!-- ============ VICTORY ============ -->
+  <div id="win" class="screen">
+    <canvas id="winPortrait"></canvas>
+    <h3 id="winName">Great White Shark</h3>
+    <div class="sci" id="winSci">Carcharodon carcharias</div>
+    <div class="msg" id="winMsg"></div>
+    <div class="statsGrid"></div>
+    <div id="lineage"></div>
+    <div class="btnRow"><button class="btn" id="btnKeep">Keep swimming</button>
+      <button class="btn ghost" id="btnAgain">New lineage</button></div>
+  </div>
+
+  <!-- ============ PAUSE ============ -->
+  <div id="pause" class="screen">
+    <h3>PAUSED</h3>
+    <div class="btnRow"><button class="btn" id="btnResume">Resume</button></div>
+  </div>
+</div>
+<script>
